@@ -1,0 +1,59 @@
+name: 'branch_pruner'
+
+env:
+  NEW_FIRST_COMMIT: # e.g. commit-hash or HEAD~N etc.
+  TOKEN_NAME: 'BRANCH_PRUNER_TOKEN'
+  REPOSITORY: # target repository e.g. 'dummy/mytargetrepo'
+  USER_NAME: # user who should commit e.g. 'dummy'
+  USER_EMAIL: # e.g. 'dummy@gmail.com'
+  DEFAULT_REPOSITORY: ${{ github.repository }} # repo with this file
+  DEFAULT_USER_NAME: 'github-actions[bot]'
+  DEFAULT_USER_EMAIL: '41898282+github-actions[bot]@users.noreply.github.com'
+
+on:
+  workflow_dispatch:
+    inputs:
+      new_first_commit:
+        description: 'New first commit'
+        required: true
+        default: 'HEAD'
+      token_name:
+        description: 'Target token name (NO VALUE!)'
+        required: true
+        default: 'BRANCH_PRUNER_TOKEN'
+      repository:
+        description: 'Target repository'
+        required: true
+        default: '0x53c65c0a8bd30fff/meta.jf-auto-collections'
+      branches:
+        description: 'Comma-separated list of branches to be pruned'
+        required: false
+      user_name:
+        description: 'User who should commit'
+        required: true
+        default: 'github-actions[bot]'
+      user_email:
+        description: 'User e-mail address'
+        required: true
+        default: '41898282+github-actions[bot]@users.noreply.github.com'
+
+jobs:
+  branch-pruner-default:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    strategy:
+      matrix:
+        branch: ['imdb_awards', 'imdb_interests', 'imdb_interests_charts', 'imdb_keywords', 'mdblist', 'trakt']
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository || env.REPOSITORY || env.DEFAULT_REPOSITORY }}
+          token: ${{ secrets[github.event.inputs.token_name] || secrets[env.TOKEN_NAME] }}
+          fetch-depth: '0'
+          ref: ${{ matrix.branch }}
+      - uses: myactionway/branch-pruner-action@v2.0
+        with:
+          new_first_commit: ${{ github.event.inputs.new_first_commit || env.NEW_FIRST_COMMIT }}
+          branch: ${{ matrix.branch }}
+          user_name: ${{ github.event.inputs.user_name || env.USER_NAME || env.DEFAULT_USER_NAME }}
+          user_email: ${{ github.event.inputs.user_email || env.USER_EMAIL || env.DEFAULT_USER_EMAIL }}

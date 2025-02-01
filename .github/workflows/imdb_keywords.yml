@@ -1,0 +1,65 @@
+name: imdb_keywords
+'on':
+  push:
+    branches:
+      - imdb_keywords
+  pull_request:
+    branches:
+      - imdb_keywords
+  schedule:
+    - cron: 0 1 * * 0
+  workflow_dispatch: null
+
+jobs:
+  imdb_keywords:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: imdb_keywords  # Ensure it checks out the imdb_keywords branch
+      - name: Set up jq and gpg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq gnupg
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+      - name: Delete previous JSON files from repository
+        run: |
+          git ls-files *.json | xargs rm -f
+      - name: Create Python script from secret
+        env:
+          PYTHON_CODE: '${{ secrets.SECRET_KEYWORDS_CODE }}'
+          PYTHON_CONFIG: '${{ secrets.SECRET_KEYWORDS_CONFIG }}'
+        run: |
+          echo "$PYTHON_CODE" > code.py
+          echo "$PYTHON_CONFIG" > config.json
+      - name: Run Python code from secret
+        run: |
+          python code.py
+      - name: Delete leftovers before committing
+        run: |
+          rm -f code.py
+          rm -f config.json
+      - name: Compress and encrypt json files
+        run: |
+          for json_file in *.json; do
+            gzip -f "$json_file"
+            gpg --batch --yes --passphrase "${{ secrets.SECRET_GPG_PASSWORD }}" -c "$json_file.gz"
+            mv "$json_file.gz.gpg" "$json_file"
+          done
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add *.json
+          git commit -m "Updated JSONs" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
